@@ -1,0 +1,471 @@
+---
+title: "pptest"
+author: "Aoran Zhang"
+date: "2024-07-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tinytex)
+```
+
+
+```{r}
+# Install and load the required library
+install.packages("forecast")
+library(forecast)
+
+# Function to generate a single ARMA sequence
+generate_arma_sequence <- function(ar_params, ma_params, sigma, seq_len) {
+  # Simulate the ARMA process
+  y <- arima.sim(n = seq_len, list(ar = ar_params, ma = ma_params), sd = sigma)
+  return(y)
+}
+
+# Function to generate multiple ARMA sequences
+generate_multiple_arma_sequences <- function(num, seq_len, ar_params, ma_params, sigma) {
+  sequences <- matrix(NA, nrow = num, ncol = seq_len)
+  for (i in 1:num) {
+    sequences[i, ] <- generate_arma_sequence(ar_params, ma_params, sigma, seq_len)
+  }
+  return(sequences)
+}
+
+# Parameters for the first set of sequences
+num <- 100  # Number of sequences
+seq_len <- 500  # Length of each sequence
+ar_params_1 <- c(0.5, 0.4)  # AR parameters for the first set
+ma_params_1 <- c(0.65)  # MA parameters for the first set
+sigma <- 1  # Standard deviation of the white noise
+
+# Generate the first set of sequences
+arma_1 <- generate_multiple_arma_sequences(num, seq_len, ar_params_1, ma_params_1, sigma)
+
+# Parameters for the second set of sequences
+ar_params_2 <- c(0.5, -0.4)  # AR parameters for the second set
+ma_params_2 <- c(0.8, -0.5)  # MA parameters for the second set
+
+# Generate the second set of sequences
+arma_2 <- generate_multiple_arma_sequences(num, seq_len, ar_params_2, ma_params_2, sigma)
+
+# Display the first few rows of each set of sequences to verify
+dim(arma_1)
+dim(arma_2)
+```
+
+```{r}
+library(WeightedPortTest)
+
+goodness_of_fit_test <- function(num_iterations, cluster1, cluster2, ar_params, ma_params) {
+  results <- data.frame(Iteration = integer(), 
+                        p_value_box = numeric(), 
+                        p_value_lm = numeric())
+  
+  for (i in 1:num_iterations) {
+    # Select a random sequence from each cluster
+    seq1 <- cluster1[sample(1:nrow(cluster1), 1), ]
+    seq2 <- cluster2[sample(1:nrow(cluster2), 1), ]
+    
+    # Fit the ARMA model specified by ar_params and ma_params to the sequence from cluster1
+    model <- arima(seq1, order = c(length(ar_params), 0, length(ma_params)), 
+                   fixed = c(ar_params, ma_params, 0))
+    
+    # Conduct the Weighted.Box.test
+    box_test <- Weighted.Box.test(model$residuals, lag = 10, type = "Ljung-Box")
+    
+    # Conduct the Weighted.LM.test
+    lm_test <- Weighted.LM.test(model$residuals, lag = 10, type = "Ljung-Box")
+    
+    # Store the results
+    results <- rbind(results, data.frame(Iteration = i, 
+                                         p_value_box = box_test$p.value, 
+                                         p_value_lm = lm_test$p.value))
+  }
+  
+  return(results)
+}
+
+```
+
+```{r ARMA vs ARMA}
+library(WeightedPortTest)
+
+# Function to generate a single ARMA sequence
+generate_arma_sequence <- function(ar_params, ma_params, sigma, seq_len) {
+  # Simulate the ARMA process
+  y <- arima.sim(n = seq_len, list(ar = ar_params, ma = ma_params), sd = sigma)
+  return(y)
+}
+
+# Function to generate multiple ARMA sequences
+generate_multiple_arma_sequences <- function(num, seq_len, ar_params, ma_params, sigma) {
+  sequences <- matrix(NA, nrow = num, ncol = seq_len)
+  for (i in 1:num) {
+    sequences[i, ] <- generate_arma_sequence(ar_params, ma_params, sigma, seq_len)
+  }
+  return(sequences)
+}
+
+# Parameters for the sequences
+num <- 100  # Number of sequences
+seq_len <- 1000  # Length of each sequence
+ar_params_1 <- c(0.5, 0.4)  # AR parameters for the first set
+ma_params_1 <- c(0.65)  # MA parameters for the first set
+sigma <- 1  # Standard deviation of the white noise
+
+# Generate the first set of sequences
+arma_1 <- generate_multiple_arma_sequences(num, seq_len, ar_params_1, ma_params_1, sigma)
+
+# Parameters for the second set of sequences
+ar_params_2 <- c(0.5, -0.4)  # AR parameters for the second set
+ma_params_2 <- c(0.8, -0.5)  # MA parameters for the second set
+
+# Generate the second set of sequences
+arma_2 <- generate_multiple_arma_sequences(num, seq_len, ar_params_2, ma_params_2, sigma)
+
+# Function to perform goodness-of-fit tests
+goodness_of_fit_test <- function(num_iterations, cluster1, cluster2, ar_params, ma_params) {
+  results <- data.frame(Iteration = integer(), 
+                        p_value_box = numeric(), 
+                        p_value_lm = numeric())
+  
+  for (i in 1:num_iterations) {
+    # Select a random sequence from each cluster
+    seq1 <- cluster1[sample(1:nrow(cluster1), 1), ]
+    seq2 <- cluster2[sample(1:nrow(cluster2), 1), ]
+    
+    # Fit the ARMA model specified by ar_params and ma_params to the sequence from cluster1
+    # model <- arima(seq1, order = c(length(ar_params), 0, length(ma_params)), method = "ML",
+    #             optim.control = list(maxit = 1000))
+    
+    model <- auto.arima(seq1, max.p = length(ar_params), max.q = length(ma_params), 
+                         d = 0, ic = "aic", 
+                     stepwise = TRUE, approximation = FALSE)
+    # checkresiduals(model)
+    # print(model$aic)
+
+    # Calculate h.t
+    h.t <- model$residuals^2
+    # print(determine_acf_values(seq1, max_lag = 50))
+    
+    # Conduct the Weighted.Box.test
+    box_test <- Weighted.Box.test(model$residuals, 
+                                  lag = 10, type = "Ljung")
+    
+    # Conduct the Weighted.LM.test
+    # lm_test <- Weighted.LM.test(model$residuals, lag = 10, h.t = h.t, type = "correlation")
+    
+    # Store the results
+    results <- rbind(results, data.frame(Iteration = i, 
+                                         p_value_box = box_test$p.value))
+  }
+  
+  return(results)
+}
+
+# Parameters for the goodness-of-fit tests
+num_iterations <- 100
+cluster <- list(c1 = arma_1, c2 = arma_2)
+ar_params <- list(c1 = ar_params_1, c2 = ar_params_2)
+ma_params <- list(c1 = ma_params_1, c2 = ma_params_2)
+
+# Perform the tests
+idx1 = 2
+idx2 = 2
+test_results <- goodness_of_fit_test(num_iterations, 
+                                     cluster[[idx1]], cluster[[idx2]], 
+                                     ar_params[[idx2]], ma_params[[idx2]])
+if (idx1 == idx2){
+  print(test_results)
+  length(which(test_results$p_value_box >= 0.05))
+} else {
+  print(test_results)
+  length(which(test_results$p_value_box <= 0.05))
+}
+```
+```{r}
+library(rugarch)
+library(forecast)
+library(WeightedPortTest)
+
+# Function to fit GARCH model and conduct goodness-of-fit tests
+goodness_of_fit_test_garch <- function(num_iterations, cluster, order_garch = c(1, 1)) {
+  results <- data.frame(Iteration = integer(), p_value_box = numeric())
+
+  for (i in 1:num_iterations) {
+    # Select a random sequence from the cluster
+    seq <- cluster[sample(1:nrow(cluster), 1), ]
+    
+    # Fit a GARCH model
+    spec <- ugarchspec(variance.model = list(model = "sGARCH", garchOrder = order_garch),
+                       mean.model = list(armaOrder = c(0, 0), include.mean = FALSE),
+                       distribution.model = "norm")
+    fit <- ugarchfit(spec = spec, data = seq)
+    
+    # Extract residuals and squared residuals
+    resids <- residuals(fit)
+    squared_resids <- resids^2
+    
+    # Conduct the Weighted.Box.test
+    box_test <- Weighted.Box.test(resids, lag = 10, type = "Ljung")
+    
+    # Store the results
+    results <- rbind(results, data.frame(Iteration = i, p_value_box = box_test$p.value))
+  }
+  
+  return(results)
+}
+
+# Parameters for the goodness-of-fit tests
+num_iterations <- 100
+order_garch <- c(1, 1)  # GARCH(1,1) model
+
+# Perform the tests on the first cluster
+test_results_garch <- goodness_of_fit_test_garch(num_iterations, cluster$c1, order_garch)
+
+# Print results and count how many p-values are above 0.05
+print(test_results_garch)
+length(which(test_results_garch$p_value_box >= 0.05))
+
+```
+
+```{r}
+library(rugarch)
+
+# Set the parameters for the GJR-GARCH(1,1) model
+mu <- 0.029365
+omega <- 0.044374
+alpha <- 0.044344
+gamma <- 0.02
+beta <- 0.931280
+eta <- 1.0  # This will be part of the variance model specification for power
+
+
+spec=ugarchspec(variance.model=list(model="sGARCH", garchOrder=c(1,1)),
+		mean.model=list(armaOrder=c(0,0), include.mean=TRUE), distribution.model="sstd",
+		fixed.pars=list(mu=mu,omega=omega, alpha1=alpha, beta1=beta,
+		shape=4,skew=2))
+# simulate the path
+
+# Simulate GJR-GARCH sequence
+sim_data <- ugarchpath(spec, n.sim = 1000, m.sim = 100)
+garch_1 <- t(sim_data@path$seriesSim)
+# # Print or plot the simulated series
+# plot(sim_series, type = "l", main = "Simulated GJR-GARCH(1,1) Series")
+
+test_results_gg <- goodness_of_fit_test_garch(num_iterations, garch_1, order_garch)
+print(test_results_gg)
+length(which(test_results_gg$p_value_box >= 0.05))
+
+
+test_results_ga <- goodness_of_fit_test(num_iterations, garch_1, cluster$c1, ar_params$c1, ma_params$c1)
+print(test_results_ga)
+length(which(test_results_ga$p_value_box <= 0.05))
+```
+
+
+```{r}
+determine_acf_values <- function(sequence, max_lag = 30) {
+  # Calculate ACF values up to the specified maximum lag
+  acf_result <- acf(sequence, plot = FALSE, lag.max = max_lag)
+  
+  # Extract the ACF values and the corresponding lags
+  acf_values <- acf_result$acf
+  lags <- acf_result$lag
+  # print(which(acf_values < 0.05)[1])
+  acf_lag = 0
+  if (is.na(which(acf_values < 0.05)[1])){
+    acf_lag = 10
+  } else {
+    acf_lag = (which(acf_values < 0.05)[1])
+  }
+return(acf_lag)
+}
+
+# Assuming sequences arma_1 and arma_2 are already generated
+# Plot ACF and PACF for a sample sequence from arma_1
+sample_sequence <- arma_1[1, ]
+
+par(mfrow = c(1, 2))
+Acf(sample_sequence, main="ACF of sample sequence from arma_1")
+Pacf(sample_sequence, main="PACF of sample sequence from arma_1")
+
+# Calculate the ACF values for the generated ARMA sequence
+acf_results <- determine_acf_values(arma_1[50,], max_lag = 50)
+
+# Display the ACF values and corresponding lags
+acf_results
+```
+
+# CvM
+```{r warning=FALSE}
+library(gofCopula)
+library(gofCopula)
+library(copula)
+library(qrmtools)
+dim(garch_1)
+
+cvm_gof <- function(df1, df2, num_iterations = 50){
+  p_vals = c()
+  for (i in 1:num_iterations){
+    idx_1 = sample(1:nrow(df1))
+    idx_2 = sample(1:nrow(df2))
+    U1 <- pobs(as.matrix(df1[idx_1,]))  # Pseudo-observations from real data
+    U2 <- pobs(as.matrix(df2[idx_2,]))  # Pseudo-observations from simulated data
+    fit_copula <- fitCopula(frankCopula(), data = cbind(U1[,1], U2[,1]), method = "mpl",
+                        control = list(method = "BFGS", maxit = 1000, reltol = 1e-8))
+    gof_test <- gofCopula(fit_copula@copula, x = cbind(U1[,1], U2[,1]), N = 1000, verbose = FALSE)
+    p_vals <- c(p_vals, gof_test$p.value)
+  }
+  return(p_vals)
+}
+# Assume arma_1 and arma_2 are already loaded as time series objects
+# idx_1 = 1
+# idx_2 = 10
+# # Step 1: Transform the margins to uniform
+# # Transform data into pseudo-observations
+# U1 <- pobs(as.matrix(arma_2[idx_1,]))  # Pseudo-observations from real data
+# U2 <- pobs(as.matrix(garch_1[idx_2,]))  # Pseudo-observations from simulated data
+# 
+# # Fitting a copula (example with a Gumbel copula)
+# tau_value <- cor(U1[,1], U2[,1], method = "kendall")
+# print(tau_value)
+# 
+# # fit_copula <- fitCopula(gumbelCopula(dim = 2), data = cbind(U1[,1], U2[,1]), method = "mpl")
+# # if (tau_value < 0) {
+# fit_copula <- fitCopula(frankCopula(), data = cbind(U1[,1], U2[,1]), method = "mpl",
+#                         control = list(method = "BFGS", maxit = 10000, reltol = 1e-8))
+# } else {
+#     fit_copula <- fitCopula(gumbelCopula(d), data = cbind(U1[,1], U2[,1]), method = "mpl")
+# }
+
+
+# Setting up for the goodness-of-fit test with parametric bootstrap
+# set.seed(271)
+# N <- 100  # Number of bootstrap samples (increase for more accuracy)
+# 
+# # Perform the goodness-of-fit test
+# gof_test <- gofCopula(fit_copula@copula, x = cbind(U1[,1], U2[,1]), N = 1000)
+# # stopifnot(gof_test$p.value < 0.05)
+# # Check p-values
+# print(gof_test)
+# pairs2(cbind(U1[,1], U2[,1]), copula = fit_copula@copula, main = "Pair Plot with Fitted Copula")
+# p_vals = cvm_gof(arma_1, arma_2)
+# sum(p_vals < 0.05)
+
+sum(cvm_gof(arma_1, arma_1) >= 0.05)
+sum(cvm_gof(arma_1, garch_1) < 0.05)
+sum(cvm_gof(garch_1, arma_1) < 0.05)
+sum(cvm_gof(garch_1, garch_1) >= 0.05)
+
+```
+
+
+# EL
+
+
+```{r}
+library(melt)
+library(forecast)
+library(rugarch)  # for GARCH models
+
+```
+```{r}
+# Sample observed data
+X <- matrix(rnorm(100), ncol=2)  # Example with two predictors
+y <- rnorm(50)  # Observed responses
+
+# Fitted model data
+X_prime <- matrix(rnorm(100), ncol=2)  # Fitted values of predictors
+y_prime <- rnorm(50)  # Fitted responses from the model
+
+```
+
+
+```{r}
+# Assuming X and Y are your vectors
+set.seed(123)
+X <- rnorm(100)  # Predictor
+Y <- 2 * X + rnorm(100)  # Response
+
+data <- data.frame(X, Y)
+
+# Create an EL object for the mean
+el_obj <- el_mean(Y ~ X, data = data)
+
+```
+
+
+
+Nadaraya-Watson kernel estimator function:
+
+$$
+\begin{equation}
+\widehat{m}(x) = \frac{\sum_{i = 1}^n Y_iK_h(x-X_i)}{\sum_{i = 1}^n K_h(x- X_i)}\\
+\widetilde{m}_{\theta}(x) = \frac{\sum_{i=1}^n K_h(x-X_i)m_{\hat{\theta}}(X_i)}{\sum_{i = 1}^n K_h(x-X_i)}
+\end{equation}\\
+
+\text{We want to test the differenc between } \widehat{m}(x) \text{ and } \widetilde{m}_{\theta}(x).
+$$
+
+```{r NW Estimator}
+# Define the Nadaraya-Watson kernel estimator function
+nw_estimator <- function(X, Y, h) {
+  kernel <- function(x) {
+    dnorm(x, mean = 0, sd = 1)
+  }
+  n <- length(Y)
+  m_hat <- numeric(n)
+  for (i in 1:n) {
+    weights <- kernel((X - X[i]) / h)
+    m_hat[i] <- sum(weights * Y) / sum(weights)
+  }
+  return(m_hat)
+}
+```
+
+Empirical Likelihood Ratio Function:
+$$
+L\{ \tilde{m}_{\hat{\theta}}(x) \} = \max \left\{ \prod_{i=1}^n p_i(x) \right\}
+\text{ subject to } \sum_{i=1}^n p_i(x) = 1 \text{ and } \sum_{i=1}^n p_i(x) K_h(x - X_i) (Y_i - \tilde{m}_{\hat{\theta}}(x)) = 0.\\
+
+\text{The optimal weights } p_i(x) \text{ are given by: }\\
+p_i(x) = \frac{1}{n} \left[ 1 + \lambda(x) K_h(x - X_i) (Y_i - \tilde{m}_{\hat{\theta}}(x)) \right]^{-1} \\
+
+\text{The log-EL ratio is: }
+l\{ \tilde{m}_{\hat{\theta}}(x) \} = -2 \log \left[ L\{ \tilde{m}_{\hat{\theta}}(x) \} n^n \right]
+
+$$
+
+```{r}
+# Define the empirical likelihood ratio function
+# Apply the melt function for empirical likelihood test
+perform_el_test <- function(X, Y, h) {
+  m_hat <- nw_estimator(X, Y, h)
+
+  # Using melt for empirical likelihood
+  # Define the constraints for the empirical likelihood ratio test
+  constraints <- function(beta, data) {
+    Y - m_hat
+  }
+
+  # Set up the data for melt
+  data_melt <- data.frame(Y = Y, X = X)
+
+  # Compute the empirical likelihood ratio test
+  el_result <- melt::el(constraints, data = data_melt)
+
+  # Output the result of the test
+  print(el_result)
+}
+
+# Example usage
+
+# Example usage
+# Load or generate example datasets
+
+perform_el_test(X, Y, h = 0.5)
+
+```
+
