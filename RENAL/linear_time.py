@@ -1,3 +1,9 @@
+"""
+References:
+- https://arxiv.org/abs/1602.02964
+- https://github.com/karlnapf/kernel_goodness_of_fit/blob/master/stat_test/linear_time.py
+"""
+
 import warnings
 import numpy as np
 from numpy.linalg import linalg, LinAlgError
