@@ -387,6 +387,7 @@ class NeuralHawkes(nn.Module):
     """
     Neural Hawkes Network (https://github.com/Hongrui24/NeuralHawkesPytorch; https://github.com/hongyuanmei/neurawkes) 
     proposed by Hongyuan Mei and Jason Eisner (2017).
+    https://proceedings.neurips.cc/paper/2017/hash/6463c88460bd63bbe256e495c63aa40b-Abstract.html
     """
     def __init__(self, config):
         super(NeuralHawkes, self).__init__()
