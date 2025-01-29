@@ -1,6 +1,6 @@
 """
 References:
-- https://arxiv.org/abs/1602.02964
+- https://proceedings.mlr.press/v48/chwialkowski16.html
 - https://github.com/karlnapf/kernel_goodness_of_fit
 """
 
