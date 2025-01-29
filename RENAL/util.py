@@ -1,3 +1,9 @@
+"""
+References:
+- https://arxiv.org/abs/1602.02964
+- https://github.com/karlnapf/kernel_goodness_of_fit
+"""
+
 from __future__ import division
 from bisect import bisect, bisect_left
 import pickle
