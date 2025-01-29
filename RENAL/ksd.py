@@ -1,3 +1,11 @@
+"""
+References: 
+- A Stein–Papangelou goodness-of-fit test for point processes.
+    Jiasen Yang, Vinayak Rao, and Jennifer Neville.
+    In Proceedings of the 22nd International Conference on Artificial Intelligence and Statistics (AISTATS), 2019.
+- https://github.com/jiaseny/sp-gof/blob/b88ba12d731004d4aa41014ffe6d0507bd787524/kernels.py#L52
+"""
+
 from __future__ import division
 from util import *
 from kernels import mmd_kernel
