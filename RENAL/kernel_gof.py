@@ -1,3 +1,9 @@
+"""
+References:
+- https://arxiv.org/abs/1602.02964
+- https://github.com/karlnapf/kernel_goodness_of_fit
+"""
+
 from scipy.spatial.distance import squareform, pdist
 
 import numpy as np
