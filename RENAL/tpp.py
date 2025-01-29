@@ -1,3 +1,8 @@
+"""
+References:
+- https://github.com/meowoodie/Spatio-Temporal-Point-Process-Simulator/blob/master/tppg.py
+"""
+
 import numpy as np
 import torch
 import torch.nn as nn
