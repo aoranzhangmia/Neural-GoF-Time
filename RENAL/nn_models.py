@@ -384,6 +384,9 @@ def model_train(train_data, test_data, model, config, mae_eval=False, ts=None,
     return model, train_llks, test_llks, test_maes
 
 class NeuralHawkes(nn.Module):
+    """
+    Neural Hawkes Network (https://github.com/Hongrui24/NeuralHawkesPytorch; https://github.com/hongyuanmei/neurawkes) proposed by Hongyuan Mei and Jason Eisner (2017).
+    """
     def __init__(self, config):
         super(NeuralHawkes, self).__init__()
         self.T0 = config.T0
